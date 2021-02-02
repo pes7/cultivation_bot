@@ -26,11 +26,14 @@ const _helpCommands =
 
 class User {
   static NAMES;
-  Info = {_id:0,_name:''};
-  Cultivation = {_level:0,_points:0};
+  Character = {
+    Info:{_id:0,_name:''},
+    Cultivation:{_level:0,_points:0},
+    TimeOut:{_cultivate:0}
+  }
   constructor(from) {
-    this.Info._id = from.id;
-    this.Info._name = from.first_name;
+    this.Character.Info._id = from.id;
+    this.Character.Info._name = from.first_name;
   }
 }
 
@@ -49,7 +52,7 @@ class dbWork {
       if (err) { console.log(`Database ${_DB} not EXIST!!! Create IT NOW!!!!`); return false; };
       var db = client.db(_DB);
         db.createCollection(table, function(err, res) {
-          if (err) console.log(err);
+          if (err.code != 48) console.log(err);
           console.log(`Collection ${table} created!`);
           client.close();
         });
@@ -69,16 +72,17 @@ class dbWork {
         });
     });
   }
-  
-  static updateUserScore(from,points){
+
+  static updateUser(user, clb = (tr)=>{ console.log(tr) }){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
       if (err) throw err;
       const db = client.db(_DB);
       const collection = db.collection(_tables._usersTable);
-      var newvalues = { $set: {'Cultivation._points' : points} }
-      collection.updateOne({'Info._id':from.id}, newvalues, function(err, res) {
-        if (err) throw err;
+      var newvalues = { $set: {Character:user.Character} }
+      collection.updateOne({'Character.Info._id':user.Character.Info._id}, newvalues, function(err, res) {
+        if (err) {clb(false); return false;};
+        clb(true);
         client.close();
       });
     })
@@ -89,7 +93,7 @@ class dbWork {
     mongoClient.connect(function(err, client){
       if(err) return console.log(err);
       const db = client.db(_DB);
-      db.collection(_tables._usersTable).findOne({'Info._id':from.id}, function(err, result) {
+      db.collection(_tables._usersTable).findOne({'Character.Info._id':from.id}, function(err, result) {
         if (err) throw err;
         client.close();
         clb(result);
@@ -102,7 +106,7 @@ class dbWork {
     mongoClient.connect(function(err, client){
       if(err) return console.log(err);
       const db = client.db(_DB);
-      db.collection(_tables._usersTable).find({'Cultivation._points': {$exists: true}}).sort({'Cultivation._points' : -1}).limit(10).toArray(function(err, result) {
+      db.collection(_tables._usersTable).find({'Character.Cultivation._points': {$exists: true}}).sort({'Character.Cultivation._points' : -1}).limit(10).toArray(function(err, result) {
         if (err) throw err;
         client.close();
         clb(result);
@@ -111,23 +115,44 @@ class dbWork {
   }
 }
 
-bot.command('cultivate', (ctx) => {
-  ctx.reply('Культивирую!');
-  var time_arg = ctx.state.command.args[0];
-  console.log(`id: ${ctx.update.message.from?.id} name: ${ctx.update.message.from?.first_name} time: ${time_arg}`);
+bot.command('me', (ctx) => {
+  dbWork.getUser(ctx.update.message.from,(user)=>{
+    console.log(user);
+  })
+})
 
-  var time = parseInt(time_arg);
-  time = time * 1000;
-  function endCultivate(arg) {
-    dbWork.getUser(ctx.update.message.from, (user) => {
-      if(user == undefined) {ctx.reply('Культивация невозможна, используйте: /start'); return false;}
-      arg.reply(`Культивация окончена!`);
-      user.Cultivation._points = user.Cultivation._points + time/1000;
-      dbWork.updateUserScore(ctx.update.message.from,user.Cultivation._points);
-      console.log(`Name: ${user.Info._name}, score: ${user.Cultivation._points}`)
-    });
-  }
-  setTimeout(endCultivate, time, ctx);
+bot.command('cultivate', (ctx) => {
+  dbWork.getUser(ctx.update.message.from, (user)=>{
+    if(user == undefined) {ctx.reply('Культивация невозможна, используйте: /start'); return false;}
+    if(user.Character.TimeOut._cultivate != 0) // Если уже культивируем
+    { 
+      ctx.reply('Я уже культивирую! Хочешь отменить? \n/clCancle');
+      return false;
+    } 
+    //Начинаем
+    ctx.reply('Культивирую!');
+    //Аргументы
+    var time_arg = ctx.state.command.args[0];
+    console.log(`id: ${ctx.update.message.from?.id} name: ${ctx.update.message.from?.first_name} time: ${time_arg}`);
+    var time = parseInt(time_arg);
+    time = time * 1000;
+
+    //По окончанию
+    function endCultivate(arg) {
+      dbWork.getUser(ctx.update.message.from,(us)=>{
+        arg.reply(`Культивация окончена!`);
+        us.Character.Cultivation._points = us.Character.Cultivation._points + time/1000;
+        us.Character.TimeOut._cultivate = 0; //Чистим таймаут!
+        dbWork.updateUser(us, (tr)=>{ console.log(`cultivate update ${us.Character.Info._name}: ${tr}`) });
+        console.log(`Name: ${us.Character.Info._name}, score: ${us.Character.Cultivation._points}`)
+      })
+    }
+    //Сначало это. Моментное действие, user не перечитем.
+    let timeout = setTimeout(endCultivate, time, ctx);
+    user.Character.TimeOut._cultivate = parseInt(timeout);
+    dbWork.updateUser(user);
+  })
+  
 })
 
 bot.command('immortals', (ctx) => {
@@ -135,11 +160,12 @@ bot.command('immortals', (ctx) => {
   dbWork.getTopUsers((users)=>{
     var list = '';
     var i = 1;
-    console.log(users);
+    console.log(`Show Immortals for ${ctx.update.message.from?.first_name}`);
     users.forEach(us => {
-      list = `${list}${i}: ${us.Info._name}[${us.Cultivation._points}]\n`;
+      list = `${list}${i}: ${us.Character.Info._name}[${us.Character.Cultivation._points}]\n`;
       i++
     });
+    if(list.length < 1) { ctx.reply('Этот мир девственно чист ;('); return false; }
     ctx.reply(list);
   });
 })
