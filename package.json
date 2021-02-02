@@ -1,0 +1,14 @@
+{
+  "name": "docker_web_app",
+  "version": "1.0.0",
+  "description": "Node bot",
+  "author": "Nazar Ukolov <ukolovnazar@gmail.com>",
+  "main": "server.js",
+  "scripts": {
+    "start": "game.js"
+  },
+  "dependencies": {
+    "mongodb": "^3.6.3",
+    "telegraf": "4.0.2"
+  }
+}
