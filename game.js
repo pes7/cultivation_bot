@@ -3,6 +3,7 @@ const { log } = require('console');
 const { brotliCompress } = require('zlib');
 const arGs = require('./commandArgs');
 const MongoClient = require("mongodb").MongoClient;
+const fs = require('fs');
 
 const token = "1063342985:AAHvN1QdZUt90BAsdo-Qc3as7pGz-HaspNA";
 const bot = new Telegraf(token)
@@ -23,6 +24,38 @@ const _helpCommands =
 `/cultivate - Культивировать сколько секунд.
 /immortals - Покажет топ культиваторов и их уровень.
 `
+
+/*
+class Wild{
+  Wild = {
+    "name":'',
+    "desc":'',
+    "type":'',
+    "price":0,
+    "cultivate":0,
+    "stat":{
+        "attak":3,
+        "defend":1,
+        "dodge":1
+    }
+  }
+  constructor(jn) {
+    this.Wild.name = js.name;
+    this.Wild.desc = js.desc;
+    this.Wild.type = js.type;
+    this.Wild.price = js.price;
+    this.Wild.cultivate = js.cultivate;
+    this.Wild.stat.attak = js.stat.attak;
+    this.Wild.stat.defend = js.stat.defend;
+    this.Wild.stat.dodge = js.stat.dodge;
+  }
+}
+*/
+
+/*Load JSON*/
+//const ww = JSON.parse(fs.readFileSync('json/wild.json', 'utf8'));
+/*Check JSON read*/
+//console.log(Wild);
 
 class User {
   static NAMES;
