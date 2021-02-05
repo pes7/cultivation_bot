@@ -5,7 +5,8 @@
         "desc":"Небольшая деревня на югозаподе провинции ШуньГу",
         "living":0,
         "people":[],
-        "wild":[]
+        "wild":[],
+        "ways":["op_les"]
     },
     "2":{
         "n":"op_les",
@@ -13,6 +14,7 @@
         "desc":"Обыкновенная опушка леса",
         "living":0,
         "people":[],
-        "wild":["shalnoy_pes"]
+        "wild":["shalnoy_pes"],
+        "ways":["d_ShanSci"]
     }
 }

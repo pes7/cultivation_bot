@@ -4,7 +4,7 @@ const { brotliCompress } = require('zlib');
 const arGs = require('./commandArgs');
 const MongoClient = require("mongodb").MongoClient;
 const fs = require('fs');
-const { ifError } = require('assert');
+const { ifError, throws } = require('assert');
 
 const token = "1063342985:AAHvN1QdZUt90BAsdo-Qc3as7pGz-HaspNA";
 const bot = new Telegraf(token)
@@ -29,7 +29,7 @@ const _helpCommands =
 У всех команд есть, сокращения, найдите их.
 /cultivate {t} - Культивировать сколько секунд.
 /immortals - Покажет топ культиваторов и их уровень.
-/location - Где вы находитесь?
+/location - Где вы находитесь? Переходы между локациями.
 /clCancle - Отменить культивацию! (Очень опасно, вы можете потерять свой прогресс культивации).
 `
 
@@ -45,6 +45,24 @@ class User {
   constructor(from) {
     this.Character.Info._id = from?.id;
     this.Character.Info._name = from?.first_name;
+  }
+  muve(loc,ctx) {
+    Location.getLocationByUser(this, (l)=>{
+      if(l != undefined){
+       var ld = l.ways.find(item => {
+        return item == loc
+       })
+       if(ld != undefined && ld.length > 0 ){
+        this.Character.Info._loc = ld
+        dbWork.updateUser(this,(tr)=>{
+          locationShow(ctx)
+            console.log(`${this.Character.Info._id} ${this.Character.Info._name} muved to ${ld}`)
+        })
+       }else{
+        ctx.reply('Немогу найти путь к этому месту...');
+       }
+      }
+    })
   }
 }
 
@@ -73,6 +91,18 @@ class Location {
       if(err) return console.log(err);
       const db = client.db(_DB);
       db.collection(Location.table).findOne({n:us.Character.Info._loc}, function(err, result) {
+        if (err) throw err;
+        client.close();
+        clb(result);
+      });
+    });
+  }
+  static getLocationByN(name, clb){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if(err) return console.log(err);
+      const db = client.db(_DB);
+      db.collection(Location.table).findOne({n:name}, function(err, result) {
         if (err) throw err;
         client.close();
         clb(result);
@@ -209,6 +239,35 @@ class dbWork {
   }
 }
 
+class _Time {
+  static convert(seconds){
+    var ost = 0;
+    var hour = 0;
+    var minute = 0;
+    if(seconds > 60){
+      if(seconds > 60*60){
+        ost = seconds % (60*60)
+        hour = Math.floor(seconds / (60*60))
+        seconds = ost
+      }
+      ost = seconds % 60
+      minute = Math.floor(seconds / 60)
+      seconds = ost
+    }
+    return {hour:hour,minute:minute,second:seconds}
+  }
+  static getCultTime(time){
+    var time = _Time.convert(time);
+    var text = 'Осталось';
+    if(time.hour == 1) text = `${text} ${time.hour} час,`
+    else if(time.hour > 1 && time.hour <= 4) text = `${text} ${time.hour} часа,`
+    else if(time.hour > 4 && time.hour <= 12) text = `${text} ${time.hour} часов,`
+    if(time.minute > 0) text = `${text} ${time.minute} минут,`
+    if(time.second > 0) text = `${text} ${time.second}с`
+    return `${text}  культивировать!`
+  }
+}
+
 bot.command('me', (ctx) => {
   dbWork.getUser(ctx.update.message.from,(user)=>{
     console.log(user);
@@ -225,20 +284,21 @@ bot.command(['cultivate','cult','c'], (ctx) => {
     } 
     //Аргументы
     var time_arg = ctx.state.command.args[0];
-    if(time_arg == null || time_arg == undefined || time_arg == 0) {time_arg=30}
+    if(time_arg == null || time_arg == undefined || time_arg == 0 || isNaN(time_arg)) {time_arg=30}
+    if(time_arg > 3600*6) { ctx.reply('Вы что старец?'); return false } // Треба по рівню збільшувати час напевне
     console.log(`id: ${ctx.update.message.from?.id} name: ${ctx.update.message.from?.first_name} time: ${time_arg}`);
     var time = parseInt(time_arg);
     time = time * 1000;
 
     //Начинаем
-    var s = ctx.reply(`Культивирую: ${time_arg}`);
+    var s = ctx.reply(`Начинаю культивацию!`);
     s.then((x)=>{
       var m_id = x.message_id;
       var c_id = x.chat.id;
       var _time_pass = 0;
       let _iterv = setInterval((m,c)=>{
         _time_pass++;
-        ctx.telegram.editMessageText(c,m,m,`Культивирую: ${time_arg - _time_pass}`);
+        ctx.telegram.editMessageText(c,m,m,_Time.getCultTime(time_arg - _time_pass));
       },1000,m_id,c_id)
       user.Character.Interval._cultivate_update = parseInt(_iterv);
       dbWork.updateUser(user, (result) => {
@@ -277,13 +337,16 @@ bot.command(['clCancle','cl'], (ctx) => {
   })
 })
 
-bot.command(['loc','location','loca'], (ctx) => {
+bot.command(['loc','location','loca','l'], (ctx) => {
+  locationShow(ctx);
+})
+
+function locationShow(ctx) {
   dbWork.getUser(ctx.update.message.from,(user)=>{
     if(user != undefined){
       Location.getLocationByUser(user,(loc)=>{
-        var names = 'никто'
         if(Object.keys(loc.wild).length > 0){
-          names = ''
+          var names = ''
           var ii = 0;
           for (var w of loc.wild) {
             ii++;
@@ -294,14 +357,30 @@ bot.command(['loc','location','loca'], (ctx) => {
                 ctx.reply(
                   `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nТут водятся: ${names}`
                 );
+                showWay(loc, ctx);
               }
             })
           }
+        }else{
+          ctx.reply(
+            `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nТут никто не водется.`
+          );
+          showWay(loc, ctx);
         }
       })
     }else{ctx.reply('Ваша душа витает на створках мироздания.')}
   })
-})
+}
+
+function showWay(loc, ctx){
+  if(Object.keys(loc.ways).length > 0){
+    for (var l of loc.ways) {
+      Location.getLocationByN(l,(lo)=>{
+        ctx.reply(`/go_${l} - ${lo.name}`);
+      })
+    }
+  }
+}
 
 bot.command(['immortals','im','imm'], (ctx) => {
   ctx.reply('Топ безсмертных мира сего:');
@@ -329,9 +408,14 @@ bot.start((ctx) => {
 bot.help((ctx) => ctx.reply(`${_helpCommands}`))
 
 bot.on('text', (ctx) => {
-  //console.log(ctx)
-  //const scores = ctx.db.getScores(ctx.message.from.username)
-  //return ctx.reply(`${ctx.message.from.username}: ${scores}`)
+  if(ctx.message.entities?.[0].type == 'bot_command'){ //Это go команда (системная)
+    var text = ctx.message.text
+    text = text.replace('/go_', '')
+    dbWork.getUser(ctx.message.from,(us)=>{ 
+      var user = Object.assign(new User, us);
+      user.muve(text,ctx)
+    })
+  }
 })
 
 //EXEC once
