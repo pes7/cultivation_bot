@@ -1,10 +1,11 @@
 const { Telegraf } = require('telegraf')
-const { log } = require('console');
-const { brotliCompress } = require('zlib');
-const arGs = require('./commandArgs');
 const MongoClient = require("mongodb").MongoClient;
 const fs = require('fs');
+const { log } = require('console');
+const { brotliCompress } = require('zlib');
 const { ifError, throws } = require('assert');
+const arGs = require('./commandArgs');
+
 const _DEBUG = false;
 
 const token = "1063342985:AAHvN1QdZUt90BAsdo-Qc3as7pGz-HaspNA";
@@ -31,6 +32,8 @@ const _helpCommands =
 /cultivate {t} - Культивировать сколько секунд.
 /immortals - Покажет топ культиваторов и их уровень.
 /location - Где вы находитесь? Переходы между локациями.
+/attak - Напасть на противника в локиции.
+/me - Информация о вас.
 /clCancle - Отменить культивацию! (Очень опасно, вы можете потерять свой прогресс культивации).
 `
 
@@ -39,6 +42,7 @@ class User {
   static NAMES;
   Character = {
     Info:{_id:0,_name:'',_loc:'d_ShanSci'},
+    Stat:{_hp:100,_attak:6,_defend:2,_dodge:1},
     Cultivation:{_level:0,_points:0},
     TimeOut:{_cultivate:0},
     Interval:{_cultivate_update:0}
@@ -55,7 +59,7 @@ class User {
        })
        if(ld != undefined && ld.length > 0 ){
         this.Character.Info._loc = ld
-        dbWork.updateUser(this,(tr)=>{
+        User.updateUser(this,(tr)=>{
           locationShow(ctx)
             console.log(`${this.Character.Info._id} ${this.Character.Info._name} muved to ${ld}`)
         })
@@ -65,6 +69,60 @@ class User {
       }
     })
   }
+  static insertUser(user) {
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+        const db = client.db(_DB);
+        const collection = db.collection(User.table);
+        collection.insertOne(user, function(err, result){
+            if(err){ 
+                return console.log(err);
+            }
+            client.close();
+        });
+    });
+  }
+
+  static updateUser(user, clb = (tr)=>{ if(_DEBUG) console.log(`Update: ${tr}`) }){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if (err) throw err;
+      const db = client.db(_DB);
+      const collection = db.collection(User.table);
+      var newvalues = { $set: {Character:user.Character} }
+      collection.updateOne({'Character.Info._id':user.Character.Info._id}, newvalues, function(err, res) {
+        if (err) {clb(false); return false;};
+        clb(true);
+        client.close();
+      });
+    })
+  }
+
+  static getUser(from, clb) {
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if(err) return console.log(err);
+      const db = client.db(_DB);
+      db.collection(User.table).findOne({'Character.Info._id':from?.id}, function(err, result) {
+        if (err) throw err;
+        client.close();
+        clb(result);
+      });
+    });
+  }
+
+  static getTopUsers(clb){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if(err) return console.log(err);
+      const db = client.db(_DB);
+      db.collection(User.table).find({'Character.Cultivation._points': {$exists: true}}).sort({'Character.Cultivation._points' : -1}).limit(10).toArray(function(err, result) {
+        if (err) throw err;
+        client.close();
+        clb(result);
+      })
+    });
+  }
 }
 
 const _defender_types = {
@@ -72,7 +130,7 @@ const _defender_types = {
   _bot:"Bot"
 }
 class Battle{
-  static name = _tables._battle;
+  static table = _tables._battle;
   Battle = {
     _attaker:'',
     _defender:'',
@@ -80,7 +138,87 @@ class Battle{
     _attaker_hp:0,
     _defender_hp:0,
     _attaker_timer:0,
-    _defender_timer:0
+    _defender_timer:0,
+    _timeStamp:0,
+    message:{
+      _id:0,
+      _chatId:0 
+    }
+  }
+  static createBattleWild(user,wild,clb = ()=>{console.log('Battle crated')}){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+        const db = client.db(_DB);
+        const collection = db.collection(Battle.table);
+        var battle = new Battle();
+        battle.Battle._attaker = user.Character.Info._id;
+        battle.Battle._attaker_hp = user.Character.Stat._hp;
+        battle.Battle._defender_type = _defender_types._player;
+        battle.Battle._defender = wild.n;
+        battle.Battle._defender_hp = wild.stat._hp;
+        battle.Battle._attaker_timer = 60;
+        battle.Battle._defender_timer = 60;
+        battle.Battle._timeStamp = Date.now();
+        collection.insertOne(battle, function(err, result){
+            if(err){ 
+                return console.log(err);
+            }
+            clb(true);
+            client.close();
+        });
+    });
+  }
+  static checkStartedBattle(user,clb){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if(err) return console.log(err);
+      const db = client.db(_DB);
+      db.collection(Battle.table).findOne({'Battle._attaker':user.Character.Info._id}, function(err, result) {
+        if (err) {console.log(err); clb(false);}
+        client.close();
+        if(result == null) {clb(false); return false;}
+        clb(true);
+      });
+    });
+  }
+  static getBattleByUser(user,clb){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if(err) return console.log(err);
+      const db = client.db(_DB);
+      db.collection(Battle.table).findOne({'Battle._attaker':user.Character.Info._id}, function(err, result) {
+        if (err) return false;
+        client.close();
+        clb(result);
+      });
+    });
+  }
+  static updateBattle(battle, clb = (tr)=>{ if(_DEBUG) console.log(`Update: ${tr}`) }){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if (err) throw err;
+      const db = client.db(_DB);
+      const collection = db.collection(Battle.table);
+      var newvalues = { $set: {Battle:battle.Battle} }
+      collection.updateOne({'Battle._attaker':battle.Battle._attaker}, newvalues, function(err, res) {
+        if (err) {clb(false); return false;};
+        clb(true);
+        client.close();
+      });
+    })
+  }
+  //NEED DELET Function, after end of battle
+  static battle(user,ctx){
+    Battle.getBattleByUser(user, (battle)=>{
+      var s = ctx.reply(`Противник`);
+      s.then((x)=>{
+        battle.Battle.message._id = x.message_id;
+        battle.Battle.message._chatId = x.chat.id;
+        Battle.updateBattle(battle,()=>{ //Теперь у нас есть линканутое сообщение
+          console.log('Пока что всё') //ДОДЕЛАТЬ!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        })
+      })
+    })
   }
 }
 
@@ -168,6 +306,7 @@ class dbWork {
         });
       });
     });
+    dbWork.creatTable(Battle.table)
   }
 
   static creatTable(table, clb = undefined){
@@ -181,61 +320,6 @@ class dbWork {
           console.log(`Collection ${table} created!`);
           client.close();
         });
-    });
-  }
-
-  static insertUser(user) {
-    const mongoClient = new MongoClient(_url, _setting);
-    mongoClient.connect(function(err, client){
-        const db = client.db(_DB);
-        const collection = db.collection(User.table);
-        collection.insertOne(user, function(err, result){
-            if(err){ 
-                return console.log(err);
-            }
-            client.close();
-        });
-    });
-  }
-
-  static updateUser(user, clb = (tr)=>{ if(_DEBUG) console.log(`Update: ${tr}`) }){
-    const mongoClient = new MongoClient(_url, _setting);
-    mongoClient.connect(function(err, client){
-      if (err) throw err;
-      const db = client.db(_DB);
-      const collection = db.collection(User.table);
-      var newvalues = { $set: {Character:user.Character} }
-      collection.updateOne({'Character.Info._id':user.Character.Info._id}, newvalues, function(err, res) {
-        if (err) {clb(false); return false;};
-        clb(true);
-        client.close();
-      });
-    })
-  }
-
-  static getUser(from, clb) {
-    const mongoClient = new MongoClient(_url, _setting);
-    mongoClient.connect(function(err, client){
-      if(err) return console.log(err);
-      const db = client.db(_DB);
-      db.collection(User.table).findOne({'Character.Info._id':from?.id}, function(err, result) {
-        if (err) throw err;
-        client.close();
-        clb(result);
-      });
-    });
-  }
-
-  static getTopUsers(clb){
-    const mongoClient = new MongoClient(_url, _setting);
-    mongoClient.connect(function(err, client){
-      if(err) return console.log(err);
-      const db = client.db(_DB);
-      db.collection(User.table).find({'Character.Cultivation._points': {$exists: true}}).sort({'Character.Cultivation._points' : -1}).limit(10).toArray(function(err, result) {
-        if (err) throw err;
-        client.close();
-        clb(result);
-      })
     });
   }
 }
@@ -270,13 +354,13 @@ class _Time {
 }
 
 bot.command('me', (ctx) => {
-  dbWork.getUser(ctx.update.message.from,(user)=>{
+  User.getUser(ctx.update.message.from,(user)=>{
     ctx.reply(`Вы: ${user.Character.Info._name}.\nВаш уровень культивации: ${user.Character.Cultivation._points}`);
   })
 })
 
 bot.command(['cultivate','cult','c'], (ctx) => {
-  dbWork.getUser(ctx.update.message.from, (user)=>{
+  User.getUser(ctx.update.message.from, (user)=>{
     if(user == undefined) {ctx.reply('Культивация невозможна, используйте: /start'); return false;}
     if(user.Character.TimeOut._cultivate != 0) // Если уже культивируем
     { 
@@ -302,37 +386,37 @@ bot.command(['cultivate','cult','c'], (ctx) => {
         ctx.telegram.editMessageText(c,m,m,_Time.getCultTime(time_arg - _time_pass));
       },1000,m_id,c_id)
       user.Character.Interval._cultivate_update = parseInt(_iterv);
-      dbWork.updateUser(user, (result) => {
+      User.updateUser(user, (result) => {
           //По окончанию
           function endCultivate(arg) {
-            dbWork.getUser(ctx.update.message.from,(us)=>{
+            User.getUser(ctx.update.message.from,(us)=>{
               arg.reply(`Культивация окончена!`);
               clearInterval(_iterv);
               us.Character.Cultivation._points = us.Character.Cultivation._points + time/1000;
               us.Character.TimeOut._cultivate = 0; //Чистим таймаут!
               us.Character.Interval._cultivate_update = 0;
-              dbWork.updateUser(us, (tr)=>{ if(_DEBUG) console.log(`cultivate update ${us.Character.Info._name}: ${tr}`) });
+              User.updateUser(us, (tr)=>{ if(_DEBUG) console.log(`cultivate update ${us.Character.Info._name}: ${tr}`) });
               console.log(`Name: ${us.Character.Info._name}, score: ${us.Character.Cultivation._points}`)
             })
           }
           //Сначало это. Моментное действие, user не перечитем.
           let timeout = setTimeout(endCultivate, time, ctx);
           user.Character.TimeOut._cultivate = parseInt(timeout);
-          dbWork.updateUser(user);
+          User.updateUser(user);
       });
     })
   })
 })
 
 bot.command(['clCancle','cl'], (ctx) => {
-  dbWork.getUser(ctx.update.message.from, (user) => {
+  User.getUser(ctx.update.message.from, (user) => {
     if(user != undefined){
       if(user.Character.TimeOut._cultivate != 0){
         clearTimeout(user.Character.TimeOut._cultivate);
         clearInterval(user.Character.Interval._cultivate_update);
         user.Character.TimeOut._cultivate = 0;
         user.Character.Interval._cultivate_update = 0;
-        dbWork.updateUser(user, (tr)=>{ ctx.reply('Культивация прервана - прогресс утерян...'); console.log(`cultivate cancle ${user.Character.Info._name}: ${tr}`) });
+        User.updateUser(user, (tr)=>{ ctx.reply('Культивация прервана - прогресс утерян...'); console.log(`cultivate cancle ${user.Character.Info._name}: ${tr}`) });
       }else{ctx.reply('Что отменять то? Вы и так не культивируете, лодрь!');}
     }
   })
@@ -343,7 +427,7 @@ bot.command(['loc','location','loca','l'], (ctx) => {
 })
 
 function locationShow(ctx) {
-  dbWork.getUser(ctx.update.message.from,(user)=>{
+  User.getUser(ctx.update.message.from,(user)=>{
     if(user != undefined){
       Location.getLocationByUser(user,(loc)=>{
         if(Object.keys(loc.wild).length > 0){
@@ -383,9 +467,33 @@ function showWay(loc, ctx){
   }
 }
 
+bot.command(['find','attak','enemy','a'], (ctx)=> {
+  User.getUser(ctx.update.message.from, (user)=>{
+    if(user == undefined) { ctx.reply('Вы не из мира сего, вы не можете напасть на врагов.\n/start'); return false;}
+    Battle.checkStartedBattle(user,(result)=>{
+      if(!result){
+        Location.getLocationByUser(user, (loc)=>{
+          if(Object.keys(loc.wild).length > 0){
+            var w = loc.wild[Math.floor(Math.random() * loc.wild.length)];
+            Wild.getWildByName(w,(wild)=>{
+              Battle.createBattleWild(user,wild,()=>{
+                ctx.reply(`Вы напали на: ${wild.name}`);
+                Battle.battle(user,ctx);
+              })
+            })
+          }
+        })
+      }else{
+        ctx.reply('Вы уже и так в бою!');
+        //Нужно сделать выход с боя с штрафами.
+      }
+    })
+  })
+})
+
 bot.command(['immortals','im','imm'], (ctx) => {
   ctx.reply('Топ безсмертных мира сего:');
-  dbWork.getTopUsers((users)=>{
+  User.getTopUsers((users)=>{
     var list = '';
     var i = 1;
     console.log(`Show Immortals for ${ctx.update.message.from?.first_name}`);
@@ -399,9 +507,9 @@ bot.command(['immortals','im','imm'], (ctx) => {
 })
 
 bot.start((ctx) => {
-  dbWork.getUser(ctx.update.message.from, (user) => {
+  User.getUser(ctx.update.message.from, (user) => {
     if(user == undefined){
-      dbWork.insertUser(new User(ctx.update.message.from));
+      User.insertUser(new User(ctx.update.message.from));
     }
   });
   ctx.reply(`Это культиваторский бот. \n НАЧНИ СВОЮ КУЛЬТИВАЦИЮ!!! \n ${_helpCommands}`)
@@ -412,7 +520,7 @@ bot.on('text', (ctx) => {
   if(ctx.message.entities?.[0].type == 'bot_command'){ //Это go команда (системная)
     var text = ctx.message.text
     text = text.replace('/go_', '')
-    dbWork.getUser(ctx.message.from,(us)=>{ 
+    User.getUser(ctx.message.from,(us)=>{ 
       var user = Object.assign(new User, us);
       user.muve(text,ctx)
     })

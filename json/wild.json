@@ -7,6 +7,7 @@
         "price":1,
         "cultivate":10,
         "stat":{
+            "hp":40,
             "attak":3,
             "defend":1,
             "dodge":1
@@ -20,6 +21,7 @@
         "price":2,
         "cultivate":20,
         "stat":{
+            "hp":60,
             "attak":1,
             "defend":4,
             "dodge":2
