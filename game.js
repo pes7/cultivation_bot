@@ -5,6 +5,7 @@ const arGs = require('./commandArgs');
 const MongoClient = require("mongodb").MongoClient;
 const fs = require('fs');
 const { ifError, throws } = require('assert');
+const _DEBUG = false;
 
 const token = "1063342985:AAHvN1QdZUt90BAsdo-Qc3as7pGz-HaspNA";
 const bot = new Telegraf(token)
@@ -197,7 +198,7 @@ class dbWork {
     });
   }
 
-  static updateUser(user, clb = (tr)=>{ console.log(`Update: ${tr}`) }){
+  static updateUser(user, clb = (tr)=>{ if(_DEBUG) console.log(`Update: ${tr}`) }){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
       if (err) throw err;
@@ -270,7 +271,7 @@ class _Time {
 
 bot.command('me', (ctx) => {
   dbWork.getUser(ctx.update.message.from,(user)=>{
-    console.log(user);
+    ctx.reply(`Вы: ${user.Character.Info._name}.\nВаш уровень культивации: ${user.Character.Cultivation._points}`);
   })
 })
 
@@ -310,7 +311,7 @@ bot.command(['cultivate','cult','c'], (ctx) => {
               us.Character.Cultivation._points = us.Character.Cultivation._points + time/1000;
               us.Character.TimeOut._cultivate = 0; //Чистим таймаут!
               us.Character.Interval._cultivate_update = 0;
-              dbWork.updateUser(us, (tr)=>{ console.log(`cultivate update ${us.Character.Info._name}: ${tr}`) });
+              dbWork.updateUser(us, (tr)=>{ if(_DEBUG) console.log(`cultivate update ${us.Character.Info._name}: ${tr}`) });
               console.log(`Name: ${us.Character.Info._name}, score: ${us.Character.Cultivation._points}`)
             })
           }
