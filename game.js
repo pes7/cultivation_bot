@@ -1,3 +1,4 @@
+const schedule = require('node-schedule');
 const { Telegraf } = require('telegraf')
 const MongoClient = require("mongodb").MongoClient;
 const fs = require('fs');
@@ -36,6 +37,19 @@ const _helpCommands =
 /me - Информация о вас.
 /clCancle - Отменить культивацию! (Очень опасно, вы можете потерять свой прогресс культивации).
 `
+var dir = 'logs'
+var now = new Date(Date.now());
+var date = `${now.getUTCDate()}.${now.getUTCMonth()}.${now.getUTCFullYear()}`
+var access = fs.createWriteStream(dir + `/L_${date}.log`, { flags: 'a' })
+    , error = fs.createWriteStream(dir + `/E_${date}.log`, { flags: 'a' });
+
+schedule.scheduleJob({hour: 00, minute: 00}, function(){ //Меняем лог фал, через день, с новой датой.
+  date = `${now.getUTCDate()}.${now.getUTCMonth()}.${now.getUTCFullYear()}`
+  access.close();
+  error.close();
+  access = fs.createWriteStream(dir + `/L_${date}.log`, { flags: 'a' });
+  error = fs.createWriteStream(dir + `/E_${date}.log`, { flags: 'a' });
+});
 
 class User {
   static table = _tables._usersTable;

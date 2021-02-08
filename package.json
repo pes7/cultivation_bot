@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "mongodb": "^3.6.3",
+    "node-schedule": "^2.0.0",
     "telegraf": "4.0.2"
   }
 }
