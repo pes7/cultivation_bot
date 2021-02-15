@@ -1,7 +1,38 @@
-{ 
-    "1":{
+[
+    {
         "n":"crystal_low_quality",
         "name":"Духовный кристал низкого качества",
+        "desc":"",
+        "stat":{"attak":0,"defend":0,"dodge":0},
+        "canEquip":false,
         "price":1
+    },
+    {
+        "n":"shalnoy_lether",
+        "name":"Потёртая шкура шального пса",
+        "desc":"",
+        "stat":{"attak":0,"defend":0,"dodge":0},
+        "canEquip":false,
+        "price":3
+    },
+    {
+        "n":"strange_dog_lether",
+        "name":"Шкура странной псины",
+        "desc":"",
+        "stat":{"attak":0,"defend":0,"dodge":0},
+        "canEquip":false,
+        "price":3
+    },
+    {
+        "n":"strange_knife",
+        "name":"Странный нож",
+        "desc":"Настолько странный как и псина.",
+        "stat":{
+            "attak":4,
+            "defend":0,
+            "dodge":0
+        },
+        "canEquip":true,
+        "price":10
     }
-}
+]

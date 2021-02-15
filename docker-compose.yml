@@ -6,10 +6,10 @@ services:
 
   mongo:
     image: mongo
-    container_name: Bot_mongo
+    container_name: mongo
     restart: always
     ports:
-      - 27017:27017
+      - 27018:27017
     volumes: 
       - mongo_data:/data/db
     environment:
@@ -18,7 +18,7 @@ services:
 
   mongo-express:
     image: mongo-express
-    container_name: Bot_Express
+    container_name: Express
     restart: always
     ports:
       - 8081:8081

@@ -1,20 +1,26 @@
-{ 
-    "1":{
-        "n":"d_ShanSci",
+[
+    {   "n":"d_ShanSci",
         "name":"Деревня ШаньСцы",
         "desc":"Небольшая деревня на югозаподе провинции ШуньГу",
         "living":0,
         "people":[],
         "wild":[],
         "ways":["op_les"]
-    },
-    "2":{
+    },{ 
         "n":"op_les",
         "name":"Опушка леса Тся",
         "desc":"Обыкновенная опушка леса",
         "living":0,
         "people":[],
         "wild":["shalnoy_pes"],
-        "ways":["d_ShanSci"]
+        "ways":["d_ShanSci","enter_les_tsa"]
+    },{
+        "n":"enter_les_tsa",
+        "name":"Вход в леса Тся",
+        "desc":"Это вход в лес, по факту вы еще не забрались даже на километр в лес.",
+        "living":0,
+        "people":[],
+        "wild":["shalnoy_pes","strange_dog"],
+        "ways":["op_les"]
     }
-}
+]

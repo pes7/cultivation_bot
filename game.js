@@ -24,8 +24,11 @@ const _tables = {
   _battleTable:"Battle",
   _itemTable:"Items"
 };
+const _image = {
+  _locationImage:"location"
+}
 const _setting = { useUnifiedTopology: true,connectTimeoutMS: 30000,keepAlive: 1 };
-const _url = 'mongodb://root:password@localhost:27017/';
+const _url = 'mongodb://root:password@localhost:27018/';
 
 /*INFO*/
 const _helpCommands = 
@@ -122,7 +125,7 @@ class User {
       if(_DEBUG === true){console.log(`${this.Character.Info._name} add item: ${item} count: ${count}`)}
     })
   }
-  static insertUser(user) {
+  static insertUser(user,clb = ()=>{}) {
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
         const db = client.db(_DB);
@@ -131,6 +134,7 @@ class User {
             if(err){ 
                 return console.log(err,'err');
             }
+            clb();
             client.close();
         });
     });
@@ -335,7 +339,6 @@ bot.on('callback_query', (ctx) => {
                         Item.getItemByName(l.n,(item)=>{ctx.reply(`${item.name} - ${co}`)})
                       }
                     }
-                    console.log(items);
                     us.addItemRange(items);
                     return true;
                   })
@@ -383,6 +386,7 @@ class Item{
 
 class Location {
   static table = _tables._locationTable;
+  static image = _image._locationImage;
   static getLocationByUser(us, clb){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
@@ -628,28 +632,31 @@ function locationShow(ctx) {
   User.getUser(ctx.update.message.from,(user)=>{
     if(user != undefined){
       Location.getLocationByUser(user,(loc)=>{
-        if(Object.keys(loc.wild).length > 0){
-          var names = ''
-          var ii = 0;
-          for (var w of loc.wild) {
-            ii++;
-            Wild.getWildByName(w, (wild)=>{
-              if(wild != undefined) {names = `${names}${wild.name} `}
-              if(names.length < 1) {names = 'никто'}
-              if(ii >= Object.keys(loc.wild).length) {
-                ctx.reply(
-                  `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nТут водятся: ${names}`
-                );
-                showWay(loc, ctx);
-              }
-            })
+        var img = ctx.replyWithPhoto({ source: `img/${Location.image}/${loc.n}.png` })
+        img.then((x)=>{
+          if(Object.keys(loc.wild).length > 0){
+            var names = ''
+            var ii = 0;
+            for (var w of loc.wild) {
+              Wild.getWildByName(w, (wild)=>{
+                ii++;
+                if(wild != undefined) {names = `${names}${wild.name}`}
+                if(names.length < 1) {names = 'никто'}
+                if(ii >= Object.keys(loc.wild).length) {
+                  ctx.reply(
+                    `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nТут водятся: ${names}`
+                  );
+                  showWay(loc, ctx);
+                }else{names = `${names}, `}
+              })
+            }
+          }else{
+            ctx.reply(
+              `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nТут никто не водется.`
+            );
+            showWay(loc, ctx);
           }
-        }else{
-          ctx.reply(
-            `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nТут никто не водется.`
-          );
-          showWay(loc, ctx);
-        }
+        })
       })
     }else{ctx.reply('Ваша душа витает на створках мироздания.')}
   })
@@ -658,8 +665,9 @@ function locationShow(ctx) {
 function showWay(loc, ctx){
   if(Object.keys(loc.ways).length > 0){
     for (var l of loc.ways) {
+      console.log(l)
       Location.getLocationByN(l,(lo)=>{
-        ctx.reply(`/go_${l} - ${lo.name}`);
+        ctx.reply(`/go_${lo.n} - ${lo.name}`);
       })
     }
   }
@@ -714,7 +722,11 @@ bot.command('t',(ctx)=>{ //-----------------------------------------------------
 bot.start((ctx) => {
   User.getUser(ctx.update.message.from, (user) => {
     if(user == undefined){
-      User.insertUser(new User(ctx.update.message.from));
+      User.insertUser(new User(ctx.update.message.from),()=>{
+        locationShow(ctx);
+      });
+    }else{
+      locationShow(ctx);
     }
   });
   ctx.reply(`Вы появились в этом мире! \n ${_helpCommands}`)
