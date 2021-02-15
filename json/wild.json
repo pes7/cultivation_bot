@@ -11,7 +11,10 @@
             "attak":3,
             "defend":1,
             "dodge":1
-        }
+        },
+        "loot":[
+            {"n":"crystal_low_quality","c_min":1,"c_max":3,"chance":1000}
+        ]
     },
     "2":{
         "n":"strange_dog",
@@ -25,6 +28,9 @@
             "attak":1,
             "defend":4,
             "dodge":2
-        }
+        },
+        "loot":[
+            {"n":"crystal_low_quality","c_min":2,"c_max":5,"chance":500}
+        ]
     }
 }
