@@ -36,20 +36,29 @@ const _helpCommands =
 /attak - Напасть на противника в локиции.
 /me - Информация о вас.
 /clCancle - Отменить культивацию! (Очень опасно, вы можете потерять свой прогресс культивации).
+/baCancle - Отмена битвы! (/bac)
 `
 var dir = 'logs'
 var now = new Date(Date.now());
 var date = `${now.getUTCDate()}.${now.getUTCMonth()}.${now.getUTCFullYear()}`
-var access = fs.createWriteStream(dir + `/L_${date}.log`, { flags: 'a' })
-    , error = fs.createWriteStream(dir + `/E_${date}.log`, { flags: 'a' });
+var access = fs.createWriteStream(dir + `/L_${date}.log`, { flags: 'a' });
 
 schedule.scheduleJob({hour: 00, minute: 00}, function(){ //Меняем лог фал, через день, с новой датой.
+  now = new Date(Date.now());
   date = `${now.getUTCDate()}.${now.getUTCMonth()}.${now.getUTCFullYear()}`
   access.close();
-  error.close();
   access = fs.createWriteStream(dir + `/L_${date}.log`, { flags: 'a' });
-  error = fs.createWriteStream(dir + `/E_${date}.log`, { flags: 'a' });
 });
+
+var originalLog = console.log;
+console.log = function(str,type='msg'){
+  var d = new Date();
+  originalLog(str);
+  if(type === 'msg') access.write(`[log][${d.toLocaleTimeString()}]${str}\n`);
+  else if(type === 'err') access.write(`[ERR][${d.toLocaleTimeString()}]${str}\n`);
+}
+
+console.log('---------------------START-----------------------');
 
 class User {
   static table = _tables._usersTable;
@@ -90,7 +99,7 @@ class User {
         const collection = db.collection(User.table);
         collection.insertOne(user, function(err, result){
             if(err){ 
-                return console.log(err);
+                return console.log(err,'err');
             }
             client.close();
         });
@@ -100,7 +109,7 @@ class User {
   static updateUser(user, clb = (tr)=>{ if(_DEBUG) console.log(`Update: ${tr}`) }){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
-      if (err) throw err;
+      if (err) console.log(err,'err');
       const db = client.db(_DB);
       const collection = db.collection(User.table);
       var newvalues = { $set: {Character:user.Character} }
@@ -115,10 +124,10 @@ class User {
   static getUser(from, clb) {
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
-      if(err) return console.log(err);
+      if(err) return console.log(err,'err');
       const db = client.db(_DB);
       db.collection(User.table).findOne({'Character.Info._id':from?.id}, function(err, result) {
-        if (err) throw err;
+        if (err) console.log(err,'err');
         client.close();
         clb(result);
       });
@@ -128,10 +137,10 @@ class User {
   static getTopUsers(clb){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
-      if(err) return console.log(err);
+      if(err) return console.log(err,'err');
       const db = client.db(_DB);
       db.collection(User.table).find({'Character.Cultivation._points': {$exists: true}}).sort({'Character.Cultivation._points' : -1}).limit(10).toArray(function(err, result) {
-        if (err) throw err;
+        if (err) console.log(err,'err');
         client.close();
         clb(result);
       })
@@ -175,7 +184,7 @@ class Battle{
         battle.Battle._timeStamp = Date.now();
         collection.insertOne(battle, function(err, result){
             if(err){ 
-                return console.log(err);
+                return console.log(err,'err');
             }
             clb(true);
             client.close();
@@ -185,10 +194,10 @@ class Battle{
   static checkStartedBattle(user,clb){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
-      if(err) return console.log(err);
+      if(err) return console.log(err,'err');
       const db = client.db(_DB);
       db.collection(Battle.table).findOne({'Battle._attaker':user.Character.Info._id}, function(err, result) {
-        if (err) {console.log(err); clb(false);}
+        if (err) {console.log(err,'err'); clb(false);}
         client.close();
         if(result == null) {clb(false); return false;}
         clb(true);
@@ -198,7 +207,7 @@ class Battle{
   static getBattleByUser(user,clb){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
-      if(err) return console.log(err);
+      if(err) return console.log(err,'err');
       const db = client.db(_DB);
       db.collection(Battle.table).findOne({'Battle._attaker':user.Character.Info._id}, function(err, result) {
         if (err) return false;
@@ -210,13 +219,28 @@ class Battle{
   static updateBattle(battle, clb = (tr)=>{ if(_DEBUG) console.log(`Update: ${tr}`) }){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
-      if (err) throw err;
+      if (err) console.log(err,'err');
       const db = client.db(_DB);
       const collection = db.collection(Battle.table);
       var newvalues = { $set: {Battle:battle.Battle} }
       collection.updateOne({'Battle._attaker':battle.Battle._attaker}, newvalues, function(err, res) {
         if (err) {clb(false); return false;};
         clb(true);
+        client.close();
+      });
+    })
+  }
+  static deleteBattle(battle, clb){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if (err) console.log(err,'err');
+      const db = client.db(_DB);
+      const collection = db.collection(Battle.table);
+      var myquery = { 'Battle._attaker':battle.Battle._attaker  };
+      collection.deleteOne(myquery, function(err, obj) {
+        if (err) console.log(err,'err');
+        console.log(`Battle ${battle.Battle._attaker} deleted!`);
+        clb();
         client.close();
       });
     })
@@ -241,10 +265,10 @@ class Location {
   static getLocationByUser(us, clb){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
-      if(err) return console.log(err);
+      if(err) return console.log(err,'err');
       const db = client.db(_DB);
       db.collection(Location.table).findOne({n:us.Character.Info._loc}, function(err, result) {
-        if (err) throw err;
+        if (err) console.log(err,'err');
         client.close();
         clb(result);
       });
@@ -253,10 +277,10 @@ class Location {
   static getLocationByN(name, clb){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
-      if(err) return console.log(err);
+      if(err) return console.log(err,'err');
       const db = client.db(_DB);
       db.collection(Location.table).findOne({n:name}, function(err, result) {
-        if (err) throw err;
+        if (err) console.log(err,'err');
         client.close();
         clb(result);
       });
@@ -269,10 +293,10 @@ class Wild {
   static getWildByName(na, clb){
     const mongoClient = new MongoClient(_url, _setting);
     mongoClient.connect(function(err, client){
-      if(err) return console.log(err);
+      if(err) return console.log(err,'err');
       const db = client.db(_DB);
       db.collection(Wild.table).findOne({n:na}, function(err, result) {
-        if (err) throw err;
+        if (err) console.log(err,'err');
         client.close();
         clb(result);
       });
@@ -296,7 +320,7 @@ class dbWork {
         const collection = db.collection(Wild.table);
         collection.insertMany(ii, function(err, result){
             if(err){ 
-                return console.log(err);
+                return console.log(err,'err');
             }
             client.close();
         });
@@ -314,7 +338,7 @@ class dbWork {
         const collection = db.collection(Location.table);
         collection.insertMany(ii, function(err, result){
             if(err){ 
-                return console.log(err);
+                return console.log(err,'err');
             }
             client.close();
         });
@@ -330,7 +354,7 @@ class dbWork {
       if (err) { console.log(`Database ${_DB} not EXIST!!! Create IT NOW!!!!`); return false; };
       var db = client.db(_DB);
         db.createCollection(table, function(err, res) {
-          if (err?.code != 48) {console.log(err); clb ? clb(): console.log(`${table} no clb`); }
+          if (err?.code != 48) {console.log(err,'err'); clb ? clb(): console.log(`${table} no clb`); }
           console.log(`Collection ${table} created!`);
           client.close();
         });
@@ -405,6 +429,7 @@ bot.command(['cultivate','cult','c'], (ctx) => {
           function endCultivate(arg) {
             User.getUser(ctx.update.message.from,(us)=>{
               arg.reply(`Культивация окончена!`);
+              ctx.telegram.deleteMessage(c_id,m_id);
               clearInterval(_iterv);
               us.Character.Cultivation._points = us.Character.Cultivation._points + time/1000;
               us.Character.TimeOut._cultivate = 0; //Чистим таймаут!
@@ -419,6 +444,22 @@ bot.command(['cultivate','cult','c'], (ctx) => {
           User.updateUser(user);
       });
     })
+  })
+})
+
+bot.command(['baCancle','bac'], (ctx) => {
+  User.getUser(ctx.update.message.from, (user) => {
+    if(user != undefined){
+      Battle.checkStartedBattle(user,(what)=>{
+        if(what){
+          Battle.getBattleByUser(user,(battle)=>{
+            Battle.deleteBattle(battle,()=>{
+              ctx.reply('Вы трусливо сбежали с битвы!');
+            })
+          })
+        }else{ctx.reply('А вы и не дрались)');}
+      })
+    }
   })
 })
 
