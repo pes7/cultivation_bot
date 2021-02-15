@@ -5,7 +5,17 @@
         "living":0,
         "people":[],
         "wild":[],
-        "ways":["op_les"]
+        "ways":["op_les","d_ShanSci_market"],
+        "interest":[]
+    },{
+        "n":"d_ShanSci_market",
+        "name":"Рынок ШаньСцы",
+        "desc":"Небольшой рынок, где вы можете найти кое-какие товары",
+        "living":0,
+        "people":[],
+        "wild":[],
+        "ways":["d_ShanSci"],
+        "interest":["market_sell_all"]
     },{ 
         "n":"op_les",
         "name":"Опушка леса Тся",
@@ -13,7 +23,8 @@
         "living":0,
         "people":[],
         "wild":["shalnoy_pes"],
-        "ways":["d_ShanSci","enter_les_tsa"]
+        "ways":["d_ShanSci","enter_les_tsa"],
+        "interest":[]
     },{
         "n":"enter_les_tsa",
         "name":"Вход в леса Тся",
@@ -21,6 +32,7 @@
         "living":0,
         "people":[],
         "wild":["shalnoy_pes","strange_dog"],
-        "ways":["op_les"]
+        "ways":["op_les"],
+        "interest":[]
     }
 ]

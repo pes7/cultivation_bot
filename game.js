@@ -22,7 +22,8 @@ const _tables = {
   _wildTable:"Wild",
   _locationTable:"Location",
   _battleTable:"Battle",
-  _itemTable:"Items"
+  _itemTable:"Items",
+  _buildingTable:"Building"
 };
 const _image = {
   _locationImage:"location"
@@ -124,6 +125,13 @@ class User {
     User.updateUser(this,(tr)=>{
       if(_DEBUG === true){console.log(`${this.Character.Info._name} add item: ${item} count: ${count}`)}
     })
+  }
+  showItems(ctx){
+    if(Object.keys(this.Character.Inventory).length > 0){
+      for (var item of this.Character.Inventory) {
+        Item.getItemByName(item.n,(it)=>{ctx.reply(`${it.name} - ${item.count}`)})
+      }
+    }else{ctx.reply('Нету 😿😿😿')}
   }
   static insertUser(user,clb = ()=>{}) {
     const mongoClient = new MongoClient(_url, _setting);
@@ -292,6 +300,7 @@ class Battle{
               Markup.button.callback('⚔️', 'battle_attak'),
               Markup.button.callback('🔙', 'battle_retreat')
             ])
+            console.log(inlineMessageRatingKeyboard)
             ctx.telegram.sendMessage(
                 ctx.from.id,
                 'Действия:',
@@ -309,55 +318,64 @@ bot.on('callback_query', (ctx) => {
   if(_DEBUG === true) {console.log(`${ctx.from.id} ${ctx.from.username} action ${ctx.callbackQuery.data}`)}
   User.getUser(ctx.from,(user)=>{
     if(user != undefined){
-      Battle.getBattleByUser(user,(battle)=>{
-        if(battle != undefined){
-          if(ctx.callbackQuery.data == 'battle_attak'){
-            Wild.getWildByName(battle.Battle._defender,(enemy)=>{
-              if(enemy != undefined){
-                battle.Battle._defender_hp = battle.Battle._defender_hp - user.Character.Stat._attak; //ДОБАВИТЬ ЗАЩИТУ И УВОРОТ!!!!
-                battle.Battle._attaker_hp = battle.Battle._attaker_hp - enemy.stat.attak;
-
-                if(battle.Battle._defender_hp <= 0){ //ПОБЕДА, нужно добавить выпадения лута
-                  user.Character.Stat._realHp = battle.Battle._attaker_hp;
-                  user.Character.Cultivation._points = user.Character.Cultivation._points + enemy.cultivate;
-                  User.updateUser(user,()=>{
-                    var us = Object.assign(new User, user);
-            
-                    ctx.telegram.editMessageText(battle.Battle.message._chatId,battle.Battle.message._id,battle.Battle.message._id,
-                      `Победа!\nВаше здоровье: ${battle.Battle._attaker_hp}/${user.Character.Stat._hp}\nКультивация +${enemy.cultivate}\nКультивация сейчас:${user.Character.Cultivation._points}`);
-
-                    ctx.deleteMessage(ctx.callbackQuery.message.message_id);
-                    Battle.deleteBattle(battle);
-
-                    var items = [];
-                    for (var l of enemy.loot) {
-                      if(getRandomArbitrary(0,1000) <= l.chance)
-                      {
-                        if(items.length == 0) ctx.reply('Вы получили:')
-                        var co = Math.floor(getRandomArbitrary(l.c_min,l.c_max));
-                        items.push({n:l.n,count:co})
-                        Item.getItemByName(l.n,(item)=>{ctx.reply(`${item.name} - ${co}`)})
-                      }
+      switch(ctx.callbackQuery.data)
+      {
+        case 'battle_attak':
+        case 'battle_retreat':
+          Battle.getBattleByUser(user,(battle)=>{
+            if(battle != undefined){
+              if(ctx.callbackQuery.data == 'battle_attak'){
+                Wild.getWildByName(battle.Battle._defender,(enemy)=>{
+                  if(enemy != undefined){
+                    battle.Battle._defender_hp = battle.Battle._defender_hp - user.Character.Stat._attak; //ДОБАВИТЬ ЗАЩИТУ И УВОРОТ!!!!
+                    battle.Battle._attaker_hp = battle.Battle._attaker_hp - enemy.stat.attak;
+  
+                    if(battle.Battle._defender_hp <= 0){ //ПОБЕДА, нужно добавить выпадения лута
+                      user.Character.Stat._realHp = battle.Battle._attaker_hp;
+                      user.Character.Cultivation._points = user.Character.Cultivation._points + enemy.cultivate;
+                      User.updateUser(user,()=>{
+                        var us = Object.assign(new User, user);
+                
+                        ctx.telegram.editMessageText(battle.Battle.message._chatId,battle.Battle.message._id,battle.Battle.message._id,
+                          `Победа!\nВаше здоровье: ${battle.Battle._attaker_hp}/${user.Character.Stat._hp}\nКультивация +${enemy.cultivate}\nКультивация сейчас:${user.Character.Cultivation._points}`);
+  
+                        ctx.deleteMessage(ctx.callbackQuery.message.message_id);
+                        Battle.deleteBattle(battle);
+  
+                        var items = [];
+                        for (var l of enemy.loot) {
+                          if(getRandomArbitrary(0,1000) <= l.chance)
+                          {
+                            if(items.length == 0) ctx.reply('Вы получили:')
+                            var co = Math.floor(getRandomArbitrary(l.c_min,l.c_max));
+                            items.push({n:l.n,count:co})
+                            Item.getItemByName(l.n,(item)=>{ctx.reply(`${item.name} - ${co}`)})
+                          }
+                        }
+                        us.addItemRange(items);
+                        return true;
+                      })
+                    }else if(battle.Battle._attaker_hp <= 0){//Поражение -----------------------------------------------------------------------ДОДЕЛАТЬ!!!!
+                      ctx.reply('Этого пока нет)');
+                      battleLeave(ctx);
+                    }else{
+                      Battle.updateBattle(battle,()=>{
+                        ctx.telegram.editMessageText(battle.Battle.message._chatId,battle.Battle.message._id,battle.Battle.message._id,
+                          `Противник ${enemy.name}\nЗдоровья: ${battle.Battle._defender_hp}/${enemy.stat.hp}\nВаше здоровье: ${battle.Battle._attaker_hp}/${user.Character.Stat._hp}`);
+                      });
                     }
-                    us.addItemRange(items);
-                    return true;
-                  })
-                }else if(battle.Battle._attaker_hp <= 0){//Поражение -----------------------------------------------------------------------ДОДЕЛАТЬ!!!!
-                  ctx.reply('Этого пока нет)');
-                  battleLeave(ctx);
-                }else{
-                  Battle.updateBattle(battle,()=>{
-                    ctx.telegram.editMessageText(battle.Battle.message._chatId,battle.Battle.message._id,battle.Battle.message._id,
-                      `Противник ${enemy.name}\nЗдоровья: ${battle.Battle._defender_hp}/${enemy.stat.hp}\nВаше здоровье: ${battle.Battle._attaker_hp}/${user.Character.Stat._hp}`);
-                  });
                 }
-             }
-            })
-          }else if(ctx.callbackQuery.data == "battle_retreat"){
-            battleLeave(ctx);
-          }
-        }
-      })
+                })
+              }else if(ctx.callbackQuery.data == "battle_retreat"){
+                battleLeave(ctx);
+              }
+            }
+          })
+        break;
+        case `market_sell_all`:
+          
+        break;
+      }
     }else{ctx.reply('Какой бой, если ты даже не рождён!');}
   })
   // Using context shortcut
@@ -378,6 +396,22 @@ class Item{
       db.collection(Item.table).findOne({n:name}, function(err, result) {
         if (err) console.log(err,'err');
         client.close();
+        clb(result);
+      });
+    });
+  }
+}
+
+class Building{
+  static table = _tables._buildingTable;
+  static query_path = "building";
+  static getBuildingByName(name,clb){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if(err) return console.log(err,'err');
+      const db = client.db(_DB);
+      db.collection(Building.table).findOne({n:name}, function(err, result) {
+        if (err) console.log(err,'err');
         clb(result);
       });
     });
@@ -433,64 +467,33 @@ class dbWork {
   static createDBandTABLE(){
     dbWork.creatTable(User.table);
     dbWork.creatTable(_tables._sectTable);
-    dbWork.creatTable(Wild.table, () => {
-      /*Load JSON*/
-      const ww = JSON.parse(fs.readFileSync('json/wild.json', 'utf8'));
-      var ii = Object.keys(ww).map(key => {
-        return ww[key];
-      })
-      const mongoClient = new MongoClient(_url, _setting);
-      mongoClient.connect(function(err, client){
-        const db = client.db(_DB);
-        const collection = db.collection(Wild.table);
-        collection.insertMany(ii, function(err, result){
-            if(err){ 
-                return console.log(err,'err');
-            }
-            client.close();
-        });
-      });
-    });
-    dbWork.creatTable(Location.table, () => {
-      /*Load JSON*/
-      const ww = JSON.parse(fs.readFileSync('json/location.json', 'utf8'));
-      var ii = Object.keys(ww).map(key => {
-        return ww[key];
-      })
-      const mongoClient = new MongoClient(_url, _setting);
-      mongoClient.connect(function(err, client){
-        const db = client.db(_DB);
-        const collection = db.collection(Location.table);
-        collection.insertMany(ii, function(err, result){
-            if(err){ 
-                return console.log(err,'err');
-            }
-            client.close();
-        });
-      });
-    });
+    dbWork.creatTable(Wild.table, 'wild');
+    dbWork.creatTable(Location.table, 'location')
     dbWork.creatTable(Battle.table)
-    dbWork.creatTable(Item.table, ()=>{
-      /*Load JSON*/
-      const ww = JSON.parse(fs.readFileSync('json/item.json', 'utf8'));
-      var ii = Object.keys(ww).map(key => {
-        return ww[key];
-      })
-      const mongoClient = new MongoClient(_url, _setting);
-      mongoClient.connect(function(err, client){
-        const db = client.db(_DB);
-        const collection = db.collection(Item.table);
-        collection.insertMany(ii, function(err, result){
-            if(err){ 
-                return console.log(err,'err');
-            }
-            client.close();
-        });
-      });
-    })
+    dbWork.creatTable(Item.table, 'item')
+    dbWork.creatTable(Building.table, 'buildings')
   }
 
-  static creatTable(table, clb = undefined){
+  static jsonRead(jsonName,tableName){
+    /*Load JSON*/
+    const ww = JSON.parse(fs.readFileSync(`json/${jsonName}.json`, 'utf8'));
+    var ii = Object.keys(ww).map(key => {
+      return ww[key];
+    })
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      const db = client.db(_DB);
+      const collection = db.collection(tableName);
+      collection.insertMany(ii, function(err, result){
+          if(err){ 
+              return console.log(err,'err');
+          }
+          client.close();
+      });
+    });
+  }
+
+  static creatTable(table, json = undefined, clb = undefined){
     console.log(`Check ${table}`)
     const client = new MongoClient(_url,_setting);
     client.connect(function(err) {
@@ -498,6 +501,7 @@ class dbWork {
       var db = client.db(_DB);
         db.createCollection(table, function(err, res) {
           if (err?.code != 48) {console.log(err,'err'); clb ? clb(): console.log(`${table} no clb`); }
+          if (json != undefined) { dbWork.jsonRead(json,table) }
           console.log(`Collection ${table} created!`);
           client.close();
         });
@@ -536,7 +540,9 @@ class _Time {
 
 bot.command('me', (ctx) => {
   User.getUser(ctx.update.message.from,(user)=>{
-    ctx.reply(`Вы: ${user.Character.Info._name}.\nВаш уровень культивации: ${user.Character.Cultivation._points}`);
+    ctx.reply(`Вы: ${user.Character.Info._name}.\nВаш уровень культивации: ${user.Character.Cultivation._points}\nВаши предметы:`);
+    var us = Object.assign(new User, user);
+    us.showItems(ctx);
   })
 })
 
@@ -643,18 +649,22 @@ function locationShow(ctx) {
                 if(wild != undefined) {names = `${names}${wild.name}`}
                 if(names.length < 1) {names = 'никто'}
                 if(ii >= Object.keys(loc.wild).length) {
-                  ctx.reply(
+                  var rep = ctx.reply(
                     `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nТут водятся: ${names}`
                   );
-                  showWay(loc, ctx);
+                  rep.then((x)=>{
+                    showBuildings(loc, ctx,()=>{showWay(loc, ctx);});
+                  })
                 }else{names = `${names}, `}
               })
             }
           }else{
-            ctx.reply(
+            var rep = ctx.reply(
               `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nТут никто не водется.`
             );
-            showWay(loc, ctx);
+            rep.then((x)=>{
+              showBuildings(loc, ctx,()=>{showWay(loc, ctx);});
+            })
           }
         })
       })
@@ -662,10 +672,32 @@ function locationShow(ctx) {
   })
 }
 
+function showBuildings(loc, ctx, clb = ()=>{}){
+  if(Object.keys(loc.interest).length > 0){
+    var ii = 0;
+    var inlineMessageRatingKeyboard = Markup.inlineKeyboard([]);//Markup.button.callback('🔎', `location_search`)
+    inlineMessageRatingKeyboard.reply_markup.inline_keyboard = new Array();
+    inlineMessageRatingKeyboard.reply_markup.inline_keyboard.push([])
+    loc.interest.forEach(build => {
+      Building.getBuildingByName(build,(b)=>{
+        inlineMessageRatingKeyboard.reply_markup.inline_keyboard[0].push(Markup.button.callback(`${b.emoji}${b.name}`, `${Building.query_path}_${b.n}`));
+        ii++;
+        if(ii >= Object.keys(loc.wild).length) {
+          var ms = ctx.telegram.sendMessage(
+              ctx.from.id,
+              'Места интереса:',
+              inlineMessageRatingKeyboard)
+          ms.then(()=>{clb()});
+        }
+      })
+    });
+  }else{clb()}
+}
+
 function showWay(loc, ctx){
   if(Object.keys(loc.ways).length > 0){
+    ctx.reply('Переходы:');
     for (var l of loc.ways) {
-      console.log(l)
       Location.getLocationByN(l,(lo)=>{
         ctx.reply(`/go_${lo.n} - ${lo.name}`);
       })
