@@ -82,15 +82,22 @@ class User {
   }
   muve(loc,ctx) {
     Location.getLocationByUser(this, (l)=>{
+      l.people.splice(l.people.findIndex(th=>th==this.Character.Info._id),1) // delete user from loc
+      Location.updateLocation(l)
       if(l != undefined){
        var ld = l.ways.find(item => {
         return item == loc
        })
        if(ld != undefined && ld.length > 0 ){
         this.Character.Info._loc = ld
-        User.updateUser(this,(tr)=>{
-          locationShow(ctx)
-            console.log(`${this.Character.Info._id} ${this.Character.Info._name} muved to ${ld}`)
+        Location.getLocationByUser(this,(loc)=>{
+          loc.people.push(this.Character.Info._id) //Insert user to new location
+          Location.updateLocation(loc,(tr)=>{
+            User.updateUser(this,(tr)=>{
+              locationShow(ctx)
+                console.log(`${this.Character.Info._id} ${this.Character.Info._name} muved to ${ld}`)
+            })  
+          })
         })
        }else{
         ctx.reply('Немогу найти путь к этому месту...');
@@ -142,7 +149,7 @@ class User {
             if(err){ 
                 return console.log(err,'err');
             }
-            clb();
+            clb(user);
             client.close();
         });
     });
@@ -169,6 +176,19 @@ class User {
       if(err) return console.log(err,'err');
       const db = client.db(_DB);
       db.collection(User.table).findOne({'Character.Info._id':from?.id}, function(err, result) {
+        if (err) console.log(err,'err');
+        client.close();
+        clb(result);
+      });
+    });
+  }
+
+  static getUserById(id,clb){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if(err) return console.log(err,'err');
+      const db = client.db(_DB);
+      db.collection(User.table).findOne({'Character.Info._id':id}, function(err, result) {
         if (err) console.log(err,'err');
         client.close();
         clb(result);
@@ -449,6 +469,20 @@ class Location {
       });
     });
   }
+  static updateLocation(location, clb = (tr)=>{if(_DEBUG===true)console.log(`${location.n} updated ${tr}`)}){
+    const mongoClient = new MongoClient(_url, _setting);
+    mongoClient.connect(function(err, client){
+      if (err) console.log(err,'err');
+      const db = client.db(_DB);
+      const collection = db.collection(Location.table);
+      var newvalues = { $set: location }
+      collection.updateOne({'n':location.n}, newvalues, function(err, res) {
+        if (err) {clb(false); return false;};
+        clb(true);
+        client.close();
+      });
+    })
+  }
 }
 
 class Wild {
@@ -654,7 +688,7 @@ function locationShow(ctx) {
                 if(names.length < 1) {names = 'никто'}
                 if(ii >= Object.keys(loc.wild).length) {
                   var rep = ctx.reply(
-                    `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nТут водятся: ${names}`
+                    `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nЗдесь: ${loc.people.length} 👨‍🎤 /who\nТут водятся: ${names}`
                   );
                   rep.then((x)=>{
                     showBuildings(loc, ctx,()=>{showWay(loc, ctx);});
@@ -664,7 +698,7 @@ function locationShow(ctx) {
             }
           }else{
             var rep = ctx.reply(
-              `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nТут никто не водется.`
+              `Вы находетесь в локации: ${loc.name}\nЭто: ${loc.desc}\nЗдесь: ${loc.people.length} 👨‍🎤 /who\nТут никто не водется.`
             );
             rep.then((x)=>{
               showBuildings(loc, ctx,()=>{showWay(loc, ctx);});
@@ -773,11 +807,38 @@ bot.command('t',(ctx)=>{ //-----------------------------------------------------
   })
 })
 
+bot.command('who',(ctx)=>{
+  User.getUser(ctx.from,(us)=>{
+    Location.getLocationByUser(us,(loc)=>{
+      var users = []
+      var max = Object.keys(loc.people).length;
+      var ii = 0;
+      var arg1 = ctx.state.command.args[0];
+      if(arg1 != undefined && arg1 === 'a') arg1 = true; else arg1 = true;
+      for(var p of loc.people)
+      {
+        ii++;
+        User.getUserById(p,(us)=>{
+          users = `${users}[${us.Character.Cultivation._level}] ${us.Character.Info._name}\n`
+          if(ii >= max || (ii >= 30 && arg1) ){
+            ctx.reply(`Тут:\n${users}`)
+          }
+        })
+      }
+    })
+  })
+})
+
 bot.start((ctx) => {
   User.getUser(ctx.update.message.from, (user) => {
     if(user == undefined){
-      User.insertUser(new User(ctx.update.message.from),()=>{
-        locationShow(ctx);
+      User.insertUser(new User(ctx.update.message.from),(us)=>{
+        Location.getLocationByUser(us,(loc)=>{
+          loc.people.push(us.Character.Info._id)
+          Location.updateLocation(loc,(tr)=>{
+            locationShow(ctx);
+          })
+        })
       });
     }else{
       locationShow(ctx);
