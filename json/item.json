@@ -3,36 +3,52 @@
         "n":"crystal_low_quality",
         "name":"Духовный кристал низкого качества",
         "desc":"",
-        "stat":{"attak":0,"defend":0,"dodge":0},
-        "canEquip":false,
+        "type":"item",
+        "stat":{},
         "price":1
     },
     {
         "n":"shalnoy_lether",
         "name":"Потёртая шкура шального пса",
         "desc":"",
-        "stat":{"attak":0,"defend":0,"dodge":0},
-        "canEquip":false,
+        "type":"item",
+        "stat":{},
         "price":3
     },
     {
         "n":"strange_dog_lether",
         "name":"Шкура странной псины",
         "desc":"",
-        "stat":{"attak":0,"defend":0,"dodge":0},
-        "canEquip":false,
+        "type":"item",
+        "stat":{},
         "price":3
     },
     {
         "n":"strange_knife",
         "name":"Странный нож",
-        "desc":"Настолько странный как и псина.",
+        "desc":"Настолько странный как и псина",
+        "type":"weapon",
         "stat":{
             "attak":4,
             "defend":0,
             "dodge":0
         },
-        "canEquip":true,
+        "price":10
+    },
+    {
+        "n":"rotted_bottle_sake",
+        "name":"Протухшая бутылка саке",
+        "desc":"Ух и воняет...",
+        "type":"eat",
+        "stat":{"eat":0,"fatigue":-10,"water":60,"heal":10},
+        "price":20
+    },
+    {
+        "n":"simple_heal_grass",
+        "name":"Низкосортная лечебная трава",
+        "desc":"просто трава",
+        "type":"eat",
+        "stat":{"eat":0,"fatigue":0,"water":0,"heal":25},
         "price":10
     }
 ]

@@ -3,8 +3,10 @@
         "name":"Деревня ШаньСцы",
         "desc":"Небольшая деревня на югозаподе провинции ШуньГу",
         "living":0,
+        "herb_chance":0,
         "people":[],
         "wild":[],
+        "herbs":[],
         "ways":["op_les","d_ShanSci_market"],
         "interest":[]
     },{
@@ -12,8 +14,10 @@
         "name":"Рынок ШаньСцы",
         "desc":"Небольшой рынок, где вы можете найти кое-какие товары",
         "living":0,
+        "herb_chance":0,
         "people":[],
-        "wild":[],
+        "herbs":[],
+        "wild":["pivas_looser"],
         "ways":["d_ShanSci"],
         "interest":["market_sell_all"]
     },{ 
@@ -21,7 +25,9 @@
         "name":"Опушка леса Тся",
         "desc":"Обыкновенная опушка леса",
         "living":0,
+        "herb_chance":400,
         "people":[],
+        "herbs":[{"n":"simple_heal_grass","c_min":1,"c_max":2,"chance":300}],
         "wild":["shalnoy_pes"],
         "ways":["d_ShanSci","enter_les_tsa"],
         "interest":[]
@@ -30,7 +36,9 @@
         "name":"Вход в леса Тся",
         "desc":"Это вход в лес, по факту вы еще не забрались даже на километр в лес.",
         "living":0,
+        "herb_chance":0,
         "people":[],
+        "herbs":[],
         "wild":["shalnoy_pes","strange_dog"],
         "ways":["op_les"],
         "interest":[]

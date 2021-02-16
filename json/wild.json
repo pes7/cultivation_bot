@@ -4,7 +4,6 @@
         "name":"Шальной пес",
         "desc":"Шальнойые псы - обычные представители псячих на контененте КанТян",
         "type":"enemy",
-        "price":1,
         "cultivate":10,
         "stat":{
             "hp":40,
@@ -21,7 +20,6 @@
         "name":"Старнная псина",
         "desc":"Странные псы - довольно странны по своей натуре, они походу перепутали атаку с защитой ;)",
         "type":"enemy",
-        "price":2,
         "cultivate":20,
         "stat":{
             "hp":60,
@@ -33,6 +31,22 @@
             {"n":"crystal_low_quality","c_min":2,"c_max":5,"chance":500},
             {"n":"strange_dog_lether","c_min":1,"c_max":3,"chance":200},
             {"n":"strange_knife","c_min":1,"c_max":1,"chance":50}
+        ]
+    },{
+        "n":"pivas_looser",
+        "name":"Старый пянчуга",
+        "desc":"Довольно старый персонаж, который уже давно забыл что такое здоровая печень",
+        "type":"enemy",
+        "cultivate":50,
+        "stat":{
+            "hp":120,
+            "attak":5,
+            "defend":3,
+            "dodge":4
+        },
+        "loot":[
+            {"n":"crystal_low_quality","c_min":5,"c_max":12,"chance":300},
+            {"n":"rotted_bottle_sake","c_min":1,"c_max":1,"chance":30}
         ]
     }
 ]

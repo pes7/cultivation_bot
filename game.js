@@ -29,7 +29,7 @@ const _image = {
   _locationImage:"location"
 }
 const _setting = { useUnifiedTopology: true,connectTimeoutMS: 30000,keepAlive: 1 };
-const _url = 'mongodb://root:password@localhost:27018/';
+const _url = 'mongodb://root:password@localhost:27017/';
 
 /*INFO*/
 const _helpCommands = 
@@ -187,6 +187,10 @@ class User {
         clb(result);
       })
     });
+  }
+
+  static createObj(user){
+    return Object.assign(new User, user);
   }
 }
 
@@ -713,6 +717,24 @@ bot.command(['find','attak','enemy','a'], (ctx)=> {
         Location.getLocationByUser(user, (loc)=>{
           if(Object.keys(loc.wild).length > 0){
             var w = loc.wild[Math.floor(Math.random() * loc.wild.length)];
+            if(Object.keys(loc.herbs).length > 0){
+              if(getRandomArbitrary(0,1000) < loc.herb_chance){
+                var us = User.createObj(user);
+                var items = [];
+                ctx.reply('После поисков, вы нашли:')
+                for (var l of loc.herbs) {
+                  if(getRandomArbitrary(0,1000) <= l.chance)
+                  {
+                    var co = Math.floor(getRandomArbitrary(l.c_min,l.c_max));
+                    items.push({n:l.n,count:co})
+                    Item.getItemByName(l.n,(item)=>{ctx.reply(`${item.name} - ${co}`)})
+                  }
+                }
+                if(items.length == 0) ctx.reply('Ничего(');
+                us.addItemRange(items);
+                return true;
+              }
+            }
             Wild.getWildByName(w,(wild)=>{
               Battle.createBattleWild(user,wild,()=>{
                 ctx.reply(`Вы напали на: ${wild.name}`);
