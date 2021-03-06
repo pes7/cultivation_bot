@@ -25,3 +25,7 @@ services:
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
       ME_CONFIG_MONGODB_ADMINPASSWORD: password
+  bot:
+    image: nazarpes7/cult_bot
+    container_name: bot
+    restart: always
