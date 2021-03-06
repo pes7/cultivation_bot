@@ -1,4 +1,4 @@
- FROM node:12-alpine
+ FROM node:15-alpine
  WORKDIR /cultivate_bot
  COPY . .
  RUN yarn install --production
