@@ -1,9 +1,9 @@
 {
-  "name": "docker_web_app",
+  "name": "cult_bot",
   "version": "1.0.0",
   "description": "Node bot",
   "author": "Nazar Ukolov <ukolovnazar@gmail.com>",
-  "main": "server.js",
+  "main": "game.js",
   "scripts": {
     "start": "game.js"
   },
