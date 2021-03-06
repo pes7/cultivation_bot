@@ -29,7 +29,7 @@ const _image = {
   _locationImage:"location"
 }
 const _setting = { useUnifiedTopology: true,connectTimeoutMS: 30000,keepAlive: 1 };
-const _url = 'mongodb://root:password@localhost:27017/';
+const _url = 'mongodb://root:password@mongo:27017/';
 
 /*INFO*/
 const _helpCommands = 
